@@ -49,6 +49,30 @@ pip install -r requirements.txt
 # run FastAPI app on your configured port
 ```
 
+## Logging token/cost + reliability (phuc vu Cost/Deployment/Presentation)
+
+### 1) Bat server log (FastAPI)
+
+- Chay FastAPI (`server/agent_api.py`) de nhan log chat tai endpoint `/api/chat_log`.
+- Set `VITE_AGENT_API_URL` (frontend) tro toi base URL cua FastAPI.
+
+Log se duoc ghi vao thu muc `chat_logs/` (moi session 1 file JSON).
+
+### 2) Thu thap token usage tu OpenAI
+
+Khi chay che do agent (co `VITE_OPENAI_API_KEY`), frontend se luu them vao `meta`:
+- `openai_usage` (prompt/completion/total tokens)
+- `openai_latency_ms_total`, `openai_latency_ms_avg`
+- `openai_request_count`, `openai_rounds`
+
+### 3) Tao report phuc vu slide/poster
+
+Cap nhat gia model trong `analytics/model_pricing_usd_per_1m_tokens.json`, sau do chay:
+
+```bash
+python analytics/token_cost_report.py --log-dir chat_logs --pricing analytics/model_pricing_usd_per_1m_tokens.json --markdown
+```
+
 ## Tai lieu lien quan
 
 - [spec-final.md](spec-final.md)

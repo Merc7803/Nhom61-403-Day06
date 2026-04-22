@@ -16,7 +16,16 @@ export async function runOpenAIAgent({
       : systemPrompt;
   const messages = [{ role: "system", content: fullSystem }, ...userAssistantMessages];
 
+  const usageTotal = {
+    prompt_tokens: 0,
+    completion_tokens: 0,
+    total_tokens: 0,
+  };
+  let requestCount = 0;
+  let totalLatencyMs = 0;
+
   for (let round = 0; round < maxRounds; round++) {
+    const t0 = performance.now();
     const res = await fetch(API_URL, {
       method: "POST",
       headers: {
@@ -44,6 +53,19 @@ export async function runOpenAIAgent({
     if (!res.ok) {
       const msg = data?.error?.message || raw.slice(0, 300);
       throw new Error(msg);
+    }
+
+    const t1 = performance.now();
+    totalLatencyMs += Math.max(0, t1 - t0);
+    requestCount += 1;
+    const u = data?.usage || null;
+    if (u && typeof u === "object") {
+      const pt = Number(u.prompt_tokens) || 0;
+      const ct = Number(u.completion_tokens) || 0;
+      const tt = Number(u.total_tokens) || pt + ct;
+      usageTotal.prompt_tokens += pt;
+      usageTotal.completion_tokens += ct;
+      usageTotal.total_tokens += tt;
     }
 
     const choice = data.choices?.[0]?.message;
@@ -76,7 +98,14 @@ export async function runOpenAIAgent({
 
     const text = (choice.content || "").trim();
     if (!text) throw new Error("Empty assistant reply");
-    return text;
+    return {
+      text,
+      usage: usageTotal,
+      request_count: requestCount,
+      latency_ms_total: Math.round(totalLatencyMs),
+      latency_ms_avg: requestCount ? Math.round(totalLatencyMs / requestCount) : 0,
+      rounds: round + 1,
+    };
   }
 
   throw new Error("Too many tool rounds");

@@ -309,7 +309,7 @@ export default function CompassScreen({
       }
 
       const apiMsgs = chatUiToApiMessages(nextUi);
-      const reply = await runOpenAIAgent({
+      const agentRes = await runOpenAIAgent({
         apiKey: openaiKey,
         model: openaiModel,
         systemPrompt: SYSTEM_AGENT,
@@ -323,6 +323,25 @@ export default function CompassScreen({
           return out;
         },
       });
+      const reply = String(agentRes?.text || "").trim();
+      if (!reply) throw new Error("Empty assistant reply");
+      const usage = agentRes?.usage && typeof agentRes.usage === "object" ? agentRes.usage : null;
+      const requestCount = Number(agentRes?.request_count) || 0;
+      const latencyTotalMs = Number(agentRes?.latency_ms_total) || 0;
+      const latencyAvgMs = Number(agentRes?.latency_ms_avg) || 0;
+      const rounds = Number(agentRes?.rounds) || 0;
+
+      toolEvents.push({
+        kind: "openai_usage",
+        model: openaiModel,
+        usage,
+        request_count: requestCount,
+        latency_ms_total: latencyTotalMs,
+        latency_ms_avg: latencyAvgMs,
+        rounds,
+        at_unix: Date.now(),
+      });
+
       setChatMessages((prev) => [...prev, { role: "bot", text: reply }]);
       try {
         await logChatSnapshot({
@@ -335,6 +354,11 @@ export default function CompassScreen({
             agent_mode: true,
             used_sticky_budget: Boolean(usedStickyBudget),
             has_budget: Boolean(recArgs),
+            openai_usage: usage,
+            openai_request_count: requestCount,
+            openai_latency_ms_total: latencyTotalMs,
+            openai_latency_ms_avg: latencyAvgMs,
+            openai_rounds: rounds,
           },
         });
       } catch {
